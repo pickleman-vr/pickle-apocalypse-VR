@@ -1,0 +1,63 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Pickle Apocalypse — VR Zombie Shooter</title>
+<style>
+html,body{margin:0;width:100%;height:100%;overflow:hidden;background:#07111a;color:#eaffef;font-family:system-ui,Arial}canvas{display:block}#hud{position:fixed;inset:0;pointer-events:none;text-shadow:0 2px 5px #000}#logo{position:absolute;left:18px;top:12px;font-size:clamp(20px,3vw,34px);font-weight:1000;letter-spacing:1px;color:#9cff3d}#sub{font-size:12px;color:#fff;letter-spacing:2px}#stats{position:absolute;right:18px;top:18px;text-align:right;font-weight:800;font-size:18px}#help{position:absolute;left:18px;bottom:18px;max-width:420px;background:#07111acc;border:1px solid #9cff3d66;border-radius:12px;padding:12px 14px;font-size:13px;line-height:1.55}#center{position:absolute;left:50%;top:50%;transform:translate(-50%,-50%);text-align:center;font-weight:900;font-size:28px;color:#b5ff64}#cross{position:absolute;left:50%;top:50%;transform:translate(-50%,-50%);font-size:25px;color:#dfffce}button{pointer-events:auto;background:#9cff3d;color:#10220a;border:0;border-radius:10px;padding:11px 15px;font-weight:900;cursor:pointer;margin:5px}#buttons{position:fixed;top:70px;right:12px;display:flex;flex-direction:column;align-items:flex-end}#buttons button{background:#102018;color:#c9ff9c;border:1px solid #9cff3d}#toast{position:absolute;left:50%;top:18%;transform:translateX(-50%);font-weight:900;font-size:20px;color:#fff}
+</style>
+</head>
+<body>
+<div id="hud"><div id="logo">🥒 PICKLE APOCALYPSE<div id="sub">GORILLA MOVEMENT • ZOMBIE SURVIVAL</div></div><div id="stats">WAVE <span id="wave">1</span><br>AMMO <span id="ammo">12</span> / ∞<br>ZOMBIES <span id="zcount">0</span></div><div id="cross">+</div><div id="center"></div><div id="toast"></div><div id="help"><b>HOW TO PLAY</b><br>WASD move • Mouse look • Click to shoot • R reload<br>Hold <b>Q / E</b> to swing your pickle arms and launch forward (gorilla movement). Space to hop. Reach for VR mode with the button.<br><span style="color:#9cff3d">Tip:</span> click the game to lock your mouse.</div></div>
+<div id="buttons"><button id="vr">🥽 ENTER VR</button><button id="restart">↻ RESTART</button></div>
+<script type="module">
+import * as THREE from 'https://cdn.jsdelivr.net/npm/three@0.161.0/build/three.module.js';
+import { VRButton } from 'https://cdn.jsdelivr.net/npm/three@0.161.0/examples/jsm/webxr/VRButton.js';
+const scene=new THREE.Scene();scene.background=new THREE.Color(0x081321);scene.fog=new THREE.Fog(0x081321,25,75);
+const camera=new THREE.PerspectiveCamera(75,innerWidth/innerHeight,.1,120);camera.position.set(0,3,9);
+const renderer=new THREE.WebGLRenderer({antialias:true});renderer.setSize(innerWidth,innerHeight);renderer.setPixelRatio(Math.min(devicePixelRatio,2));renderer.xr.enabled=true;renderer.shadowMap.enabled=true;document.body.appendChild(renderer.domElement);
+scene.add(new THREE.HemisphereLight(0x9ab8d4,0x26331c,2));const sun=new THREE.DirectionalLight(0xffe1ad,2.6);sun.position.set(-8,15,7);sun.castShadow=true;scene.add(sun);
+const mat=(c,r=.8,m=0)=>new THREE.MeshStandardMaterial({color:c,roughness:r,metalness:m});
+const green=mat(0x63bc18,.38), darkGreen=mat(0x2e6d10), bumpMat=mat(0x326f12), black=mat(0x111820), gunMat=mat(0x303943,.35,.65), yellow=mat(0xffc84c), zombieSkin=mat(0x71866a), shirt=mat(0x5a5145), red=mat(0x751e23);
+const ground=new THREE.Mesh(new THREE.PlaneGeometry(100,100),mat(0x25332b));ground.rotation.x=-Math.PI/2;ground.receiveShadow=true;scene.add(ground);
+const grid=new THREE.GridHelper(100,50,0x4e6a43,0x344a36);grid.position.y=.015;scene.add(grid);
+function box(x,y,z,sx,sy,sz,material){let o=new THREE.Mesh(new THREE.BoxGeometry(sx,sy,sz),material);o.position.set(x,y,z);o.castShadow=true;o.receiveShadow=true;scene.add(o);return o}
+// ruined outpost props
+for(let i=0;i<26;i++){let x=(Math.random()-.5)*65,z=(Math.random()-.5)*65;if(Math.abs(x)<7&&Math.abs(z)<7)continue;let h=1+Math.random()*4;box(x,h/2,z,1+Math.random()*2,h,1+Math.random()*2,i%3?mat(0x39434a):mat(0x5b4735));if(i%3===0)box(x,h+.15,z,.8,.12,.8,mat(0xff8a2c));}
+// fences
+for(let z=-14;z<=14;z+=2)box(13,1.3,z,.15,2.6,.15,mat(0x535d5b));box(13,2.3,0,.2,.2,30,mat(0x535d5b));
+// Pickle hero: full visible avatar
+const hero=new THREE.Group();scene.add(hero);
+const body=new THREE.Mesh(new THREE.CapsuleGeometry(.48,1.05,6,12),green);body.position.y=1.25;body.rotation.z=-.12;body.castShadow=true;hero.add(body);
+// pickle bumps
+for(let i=0;i<16;i++){let a=Math.random()*Math.PI*2,y=.75+Math.random()*1.25;let r=.47*Math.sqrt(Math.max(.1,1-((y-1.25)/1.25)**2));let b=new THREE.Mesh(new THREE.SphereGeometry(.055,8,6),bumpMat);b.position.set(Math.cos(a)*r,y,Math.sin(a)*r);hero.add(b)}
+// goggles
+const goggle=new THREE.Mesh(new THREE.BoxGeometry(.58,.22,.16),black);goggle.position.set(0,1.75,-.4);hero.add(goggle);const lens=new THREE.Mesh(new THREE.BoxGeometry(.43,.12,.04),mat(0x8cecff,.2,.2));lens.position.set(0,1.76,-.5);hero.add(lens);
+const arms=[];for(let s of [-1,1]){let pivot=new THREE.Group();pivot.position.set(s*.43,1.35,0);hero.add(pivot);let arm=new THREE.Mesh(new THREE.CapsuleGeometry(.16,.56,4,8),green);arm.position.set(s*.28,-.16,-.2);arm.rotation.z=s*.65;arm.castShadow=true;pivot.add(arm);let hand=new THREE.Mesh(new THREE.SphereGeometry(.2,10,8),green);hand.position.set(s*.42,-.42,-.35);pivot.add(hand);arms.push(pivot);let leg=new THREE.Mesh(new THREE.CapsuleGeometry(.17,.42,4,8),darkGreen);leg.position.set(s*.23,.34,.02);leg.rotation.z=s*.12;hero.add(leg)}
+// little gun in right hand
+const gun=new THREE.Group();hero.add(gun);let barrel=new THREE.Mesh(new THREE.BoxGeometry(.14,.14,.72),gunMat);barrel.position.set(.58,1.04,-.65);gun.add(barrel);let grip=new THREE.Mesh(new THREE.BoxGeometry(.12,.28,.16),black);grip.position.set(.58,.86,-.4);gun.add(grip);
+// third-person camera / player state
+let yaw=0,pitch=-.08,vel=new THREE.Vector3(),onGround=true,ammo=12,wave=1,kills=0,gameOver=false,shotFlash=0;const keys={};let mouseLocked=false;const zombies=[],raycaster=new THREE.Raycaster();
+function makeZombie(){let z=new THREE.Group();let skin=new THREE.Mesh(new THREE.CapsuleGeometry(.34,.8,4,8),zombieSkin);skin.position.y=1.12;z.add(skin);let torso=new THREE.Mesh(new THREE.BoxGeometry(.68,.72,.34),shirt);torso.position.y=1.05;torso.position.z=.02;z.add(torso);for(let s of [-1,1]){let a=new THREE.Mesh(new THREE.CapsuleGeometry(.12,.48,3,6),zombieSkin);a.position.set(s*.47,1.05,-.02);a.rotation.z=s*.5;z.add(a);let l=new THREE.Mesh(new THREE.CapsuleGeometry(.14,.45,3,6),shirt);l.position.set(s*.19,.37,0);z.add(l)}let eyeMat=mat(0xffa72d,.3);for(let s of [-1,1]){let e=new THREE.Mesh(new THREE.SphereGeometry(.055,8,6),eyeMat);e.position.set(s*.12,1.28,-.31);z.add(e)}z.position.set((Math.random()-.5)*30,0,-(15+Math.random()*22));z.userData={hp:2,speed:1.1+Math.random()*.45,attack:0};scene.add(z);zombies.push(z)}
+function spawnWave(){for(let i=0;i<Math.min(3+wave*2,18);i++)makeZombie();document.getElementById('wave').textContent=wave;updateStats()}
+function updateStats(){document.getElementById('ammo').textContent=ammo;document.getElementById('zcount').textContent=zombies.length;}
+function toast(t){let el=document.getElementById('toast');el.textContent=t;setTimeout(()=>{if(el.textContent===t)el.textContent=''},1500)}
+function reload(){ammo=12;updateStats();toast('RELOADED!')}
+function shoot(){if(gameOver)return;if(ammo<=0){toast('PRESS R TO RELOAD');return}ammo--;updateStats();shotFlash=.08;const origin=camera.position.clone();const dir=new THREE.Vector3();camera.getWorldDirection(dir);raycaster.set(origin,dir);let hits=raycaster.intersectObjects(zombies.flatMap(z=>z.children),true);if(hits.length){let obj=hits[0].object;let zobj=obj;while(zobj.parent&&!zombies.includes(zobj))zobj=zobj.parent;if(zombies.includes(zobj)){zobj.userData.hp--;if(zobj.userData.hp<=0){scene.remove(zobj);zombies.splice(zombies.indexOf(zobj),1);kills++;toast('PICKLED! +1');if(zombies.length===0){wave++;setTimeout(spawnWave,1200)}updateStats()}}}}
+function setPointer(){renderer.domElement.requestPointerLock?.()}
+renderer.domElement.addEventListener('click',()=>{if(!renderer.xr.isPresenting)setPointer();});document.addEventListener('pointerlockchange',()=>mouseLocked=document.pointerLockElement===renderer.domElement);
+document.addEventListener('mousemove',e=>{if(mouseLocked){yaw-=e.movementX*.0024;pitch-=e.movementY*.002;pitch=Math.max(-.7,Math.min(.55,pitch))}});
+document.addEventListener('mousedown',e=>{if(e.button===0&&mouseLocked)shoot()});document.addEventListener('keydown',e=>{keys[e.code]=true;if(e.code==='KeyR')reload();if(e.code==='Space'&&onGround){vel.y=5.2;onGround=false}});document.addEventListener('keyup',e=>keys[e.code]=false);
+function enterVR(){if(!navigator.xr){toast('VR needs a WebXR-compatible browser and headset');return}navigator.xr.isSessionSupported('immersive-vr').then(ok=>{if(ok){renderer.xr.setReferenceSpaceType('local-floor');renderer.xr.setSession;document.body.appendChild(VRButton.createButton(renderer))}else toast('No immersive VR headset detected')}).catch(()=>toast('Open in a WebXR-compatible browser'))}
+document.getElementById('vr').onclick=enterVR;document.getElementById('restart').onclick=()=>{for(let z of zombies)scene.remove(z);zombies.length=0;hero.position.set(0,0,5);vel.set(0,0,0);ammo=12;wave=1;kills=0;gameOver=false;document.getElementById('center').textContent='';spawnWave();updateStats()};
+let prev=performance.now();function animate(now){let dt=Math.min((now-prev)/1000,.04);prev=now;let moving=false;
+// Gorilla-style arm pumps: holding Q/E pushes player in the direction the arms are swinging
+let forward=new THREE.Vector3(-Math.sin(yaw),0,-Math.cos(yaw)),right=new THREE.Vector3(Math.cos(yaw),0,-Math.sin(yaw));let move=new THREE.Vector3();if(keys.KeyW)move.add(forward);if(keys.KeyS)move.sub(forward);if(keys.KeyD)move.add(right);if(keys.KeyA)move.sub(right);if(move.lengthSq())move.normalize();
+if(keys.KeyQ||keys.KeyE){let push=forward.clone().multiplyScalar(5.8*dt);if(keys.KeyQ)push.add(right.clone().multiplyScalar(-2.2*dt));if(keys.KeyE)push.add(right.clone().multiplyScalar(2.2*dt));vel.x+=push.x;vel.z+=push.z;arms[0].rotation.x=Math.sin(now*.025)*.9;arms[1].rotation.x=-Math.sin(now*.025)*.9;moving=true}
+vel.x+=move.x*9*dt;vel.z+=move.z*9*dt;vel.x*=Math.pow(.08,dt);vel.z*=Math.pow(.08,dt);hero.position.x+=vel.x*dt;hero.position.z+=vel.z*dt;hero.position.x=THREE.MathUtils.clamp(hero.position.x,-42,42);hero.position.z=THREE.MathUtils.clamp(hero.position.z,-42,42);vel.y-=12*dt;hero.position.y+=vel.y*dt;if(hero.position.y<=0){hero.position.y=0;vel.y=0;onGround=true}hero.rotation.y=yaw;arms.forEach((a,i)=>{if(!moving)a.rotation.x=Math.sin(now*.006+i*Math.PI)*.08});
+// third person follow camera; VR overrides camera pose
+if(!renderer.xr.isPresenting){camera.position.set(hero.position.x+Math.sin(yaw)*5,hero.position.y+3.1+pitch*2,hero.position.z+Math.cos(yaw)*5);camera.lookAt(hero.position.x,hero.position.y+1.2,hero.position.z);camera.rotation.y+=0;}
+for(let z of [...zombies]){let dx=hero.position.x-z.position.x,dz=hero.position.z-z.position.z,dist=Math.hypot(dx,dz);if(dist>1.5){z.position.x+=dx/dist*z.userData.speed*dt;z.position.z+=dz/dist*z.userData.speed*dt;z.rotation.y=Math.atan2(-dx,-dz)}else{z.userData.attack+=dt;if(z.userData.attack>1.2){z.userData.attack=0;toast('THE HORDE IS CLOSE!')}}}
+if(shotFlash>0)shotFlash-=dt;document.getElementById('center').textContent=gameOver?'GAME OVER':'';renderer.render(scene,camera);renderer.setAnimationLoop(animate)}
+spawnWave();renderer.setAnimationLoop(animate);addEventListener('resize',()=>{camera.aspect=innerWidth/innerHeight;camera.updateProjectionMatrix();renderer.setSize(innerWidth,innerHeight)});
+</script></body></html>
